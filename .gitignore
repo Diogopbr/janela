@@ -12,3 +12,6 @@
 /playwright-report/
 *.log
 *.tsbuildinfo
+/AGENTS.md
+/docs/superpowers/plans/
+/docs/reviews/
