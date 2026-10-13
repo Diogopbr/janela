@@ -26,6 +26,11 @@ implementados, com dez testes frontend. O navegador local percorreu iniciar,
 criar, remarcar, cancelar e recarregar o histórico. Capturas desktop1440/mobile390
 tiveram axe0, sem overflow horizontal ou erro JavaScript. CI e hospedagem pendentes.
 
+Os três cenários Playwright passaram juntos no banco isolado de teste. Evidências
+e limites em [verificação local](docs/evidence/verification.md). No Windows
+preparado, `./scripts/verify.ps1` executa todos os checks e migrations somente
+em `janela_test`.
+
 Contratos: [acesso](docs/contracts/access.md) e [reservas](docs/contracts/reservations.md).
 
 Interface: [sistema de design](DESIGN.md), fontes locais com licenças e agenda

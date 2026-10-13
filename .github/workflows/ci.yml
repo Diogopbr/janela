@@ -1,0 +1,64 @@
+name: Janela verification
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.10
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-fixture-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://janela_test:ci-app-fixture-only@127.0.0.1:5432/janela_test
+      JANELA_TEST_DATABASE_URL: postgresql://janela_test:ci-app-fixture-only@127.0.0.1:5432/janela_test
+      DB_TLS: "false"
+      SESSION_SECRET: ci-fixture-only-secret-never-use-in-production
+      APP_URL: http://127.0.0.1:5093
+      PORT: "5093"
+      JANELA_DEMO_ENABLED: "true"
+      JANELA_LOGIN_ENABLED: "false"
+      JANELA_VERCEL_INGRESS: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Create isolated databases and roles
+        env:
+          PGPASSWORD: ci-admin-fixture-only
+        run: |
+          psql --host=127.0.0.1 --username=postgres --dbname=postgres --set=ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE janela LOGIN PASSWORD 'ci-main-fixture-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+          CREATE ROLE janela_test LOGIN PASSWORD 'ci-app-fixture-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT;
+          CREATE DATABASE janela OWNER janela;
+          CREATE DATABASE janela_test OWNER janela_test;
+          REVOKE CONNECT ON DATABASE janela FROM PUBLIC;
+          REVOKE CONNECT ON DATABASE janela_test FROM PUBLIC;
+          REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;
+          SQL
+      - run: npm ci
+      - run: npm exec -- playwright install --with-deps chromium
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run test:frontend
+      - run: npm run build
+      - name: Prepare only the browser test database
+        run: npm run migrate
+      - run: npm run test:e2e
+      - run: git diff --check

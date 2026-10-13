@@ -57,4 +57,3 @@ Contratos e limitações estão em docs/contracts. Não há clientes ou receita 
 Português brasileiro, operação por teclado, rótulos explícitos, foco visível,
 estados textuais e layout de registros legíveis no celular. Arrastar não pode
 ser a única forma de agendar. Verificação em navegador e axe precede publicação.
-

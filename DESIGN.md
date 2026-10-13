@@ -224,7 +224,7 @@ A lista de reservas fica disponível também no desktop. No celular, torna-se a 
 
 ### Dialog and history
 
-O reset usa diálogo nativo de até 520px, largura `calc(100% - 32px)` e padding de 28px, reduzido para 24px no celular. A ação de manter ambiente recebe foco inicial. Texto explica o efeito do reset e os limites da demo. Durante envio, ações ficam desabilitadas e o cancelamento por Escape é bloqueado.
+O reset usa diálogo nativo de até 520px, largura `calc(100% - 32px)` e padding de 28px, reduzido para 24px no celular. A ação de manter ambiente recebe foco inicial. Tab/Shift+Tab circulam entre as ações; fechar devolve foco ao controle que abriu o diálogo. Texto explica o efeito do reset e os limites da demo. Durante envio, ações ficam desabilitadas e o cancelamento por Escape é bloqueado.
 
 O histórico é uma lista ordenada sem marcadores visuais, com divisórias, eventos escritos, horários tabulares e intervalos antes/depois. O detalhe cancelado conserva histórico e informa leitura sem novas alterações.
 
