@@ -5,6 +5,7 @@ import { migrate } from '../../src/db/migrate.js';
 import { withWorkspace, type Scope } from '../../src/access/scope.js';
 import { PostgresSessionStore } from '../../src/access/sessions.js';
 import type { SessionData } from 'express-session';
+import { cleanupBatch } from '../../src/access/cleanup.js';
 const url = process.env.JANELA_TEST_DATABASE_URL;
 if (!url || new URL(url).pathname !== '/janela_test' || new URL(url).username !== 'janela_test' || new URL(url).hostname !== '127.0.0.1') throw new Error('Isolated janela_test database required');
 const schema = `jt_${randomUUID().replaceAll('-', '')}`;
@@ -55,4 +56,24 @@ test('expiration is rechecked before commit and revoked generations are hidden',
   expect((await pool.query('SELECT count(*)::integer AS count FROM resources')).rows[0].count).toBe(0);
   await pool.query('UPDATE workspaces SET revoked_at=clock_timestamp() WHERE id=$1', [scope.id]);
   await expect(withWorkspace(pool, scope, async () => 'exposed')).rejects.toMatchObject({ status: 404 });
+});
+test('bounded cleanup skips locked workspaces and preserves normal and active environments',async()=>{
+  const expired=randomUUID(), locked=randomUUID(), active=randomUUID(), normal=randomUUID();
+  for(const id of [expired,locked,active]) await pool.query("INSERT INTO workspaces(id,kind,visitor_id,expires_at) VALUES($1,'demo',$2,clock_timestamp()+$3::interval)",[id,visitorId,id===active?'24 hours':'-1 second']);
+  await pool.query("INSERT INTO workspaces(id,kind) VALUES($1,'normal')",[normal]);
+  await pool.query('INSERT INTO resources(id,workspace_id,name) VALUES($1,$2,$3)',[randomUUID(),expired,'Expired resource']);
+  await pool.query("INSERT INTO sessions(id,workspace_id,payload,expires_at) VALUES('expired-session',$1,'{}',clock_timestamp()+interval '1 hour')",[expired]);
+  const holder=await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    await holder.query('SELECT id FROM workspaces WHERE id=$1 FOR UPDATE',[locked]);
+    expect(await cleanupBatch(pool,10)).toBeGreaterThanOrEqual(1);
+    expect((await pool.query('SELECT id FROM workspaces WHERE id=$1',[expired])).rowCount).toBe(0);
+    expect((await pool.query('SELECT id FROM sessions WHERE id=$1',['expired-session'])).rowCount).toBe(0);
+    expect((await pool.query('SELECT id FROM workspaces WHERE id=ANY($1::uuid[])',[[locked,active,normal]])).rowCount).toBe(3);
+    await holder.query('COMMIT');
+  } finally { holder.release(); }
+  expect(await cleanupBatch(pool,10)).toBe(1);
+  await expect(cleanupBatch(pool,0)).rejects.toThrow('1');
+  await expect(cleanupBatch(pool,1001)).rejects.toThrow('1000');
 });

@@ -1,9 +1,10 @@
 import type { ErrorRequestHandler } from 'express';
 export class HttpError extends Error {
-  constructor(public readonly status: number, public readonly code: string, message: string) { super(message); }
+  constructor(public readonly status: number, public readonly code: string, message: string, public readonly retryAfter?: number) { super(message); }
 }
 export const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _next) => {
   if (error instanceof HttpError) {
+    if (error.retryAfter) response.set('Retry-After', String(error.retryAfter));
     response.status(error.status).json({ error: { code: error.code, message: error.message } });
     return;
   }
