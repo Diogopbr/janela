@@ -19,9 +19,12 @@ migrations transacionais com checksum e endpoint `/health/ready`. A prontidão
 retorna 503 antes das migrations e 200 após sua aplicação; não executa migrations
 durante o startup. Produção exige HTTPS, TLS verificado no banco e segredo de sessão.
 
-Em 13/10/2026 passaram oito testes locais, incluindo HTTP real e PostgreSQL,
-tipagem TypeScript e build React/Node. Isso verifica a fundação; reservas,
-autenticação, interface final, CI e hospedagem ainda estão em implementação.
+Em 13/10/2026 passaram 31 testes locais, incluindo HTTP real, PostgreSQL e
+processos independentes para a prova de exclusão. Tipagem TypeScript, formatação
+e build React/Node passaram. Acesso e criação de reservas estão implementados;
+remarcação, cancelamento, interface final, CI e hospedagem ainda estão em implementação.
+
+Contratos: [acesso](docs/contracts/access.md) e [reservas](docs/contracts/reservations.md).
 
 Requisitos: Node 24.15 ou superior da série 24, npm 11.12.1 e PostgreSQL 17.
 Instale com `npm ci`, configure as variáveis de `.env.example`, aplique

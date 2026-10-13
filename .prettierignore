@@ -1,0 +1,10 @@
+node_modules/
+dist/
+public/
+.local/
+.superpowers/
+.vercel/
+docs/superpowers/
+docs/reviews/
+AGENTS.md
+package-lock.json

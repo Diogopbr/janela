@@ -7,7 +7,12 @@ import { createApp } from '../../src/http/app.js';
 import { migrate } from '../../src/db/migrate.js';
 
 const testURL = process.env.JANELA_TEST_DATABASE_URL;
-if (!testURL || new URL(testURL).pathname !== '/janela_test' || new URL(testURL).username !== 'janela_test' || new URL(testURL).hostname !== '127.0.0.1') {
+if (
+  !testURL ||
+  new URL(testURL).pathname !== '/janela_test' ||
+  new URL(testURL).username !== 'janela_test' ||
+  new URL(testURL).hostname !== '127.0.0.1'
+) {
   throw new Error('Integration tests require the isolated local janela_test database and role.');
 }
 const schema = `jt_${randomUUID().replaceAll('-', '')}`;
@@ -24,7 +29,7 @@ beforeAll(async () => {
   address = `http://127.0.0.1:${info.port}`;
 });
 afterAll(async () => {
-  await new Promise<void>(resolve => server?.close(() => resolve()));
+  await new Promise<void>((resolve) => server?.close(() => resolve()));
   await pool.end();
   if (!/^jt_[a-f0-9]{32}$/.test(schema)) throw new Error('Unsafe cleanup schema');
   await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
@@ -39,9 +44,18 @@ test('readiness requires migrations, works on real PostgreSQL and exposes no cre
   const ready = await fetch(`${address}/health/ready`);
   expect(ready.status).toBe(200);
   expect(await ready.json()).toEqual({ status: 'ready' });
-  const role = (await pool.query('SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user')).rows[0];
+  const role = (
+    await pool.query(
+      'SELECT rolsuper,rolcreatedb,rolcreaterole FROM pg_roles WHERE rolname=current_user',
+    )
+  ).rows[0];
   expect(role).toEqual({ rolsuper: false, rolcreatedb: false, rolcreaterole: false });
-  expect((await pool.query("SELECT has_database_privilege(current_user,'janela','CONNECT') AS allowed")).rows[0].allowed).toBe(false);
+  expect(
+    (await pool.query("SELECT has_database_privilege(current_user,'janela','CONNECT') AS allowed"))
+      .rows[0].allowed,
+  ).toBe(false);
   await migrate(pool);
-  expect((await pool.query('SELECT count(*)::integer AS count FROM schema_migrations')).rows[0].count).toBe(1);
+  expect(
+    (await pool.query('SELECT count(*)::integer AS count FROM schema_migrations')).rows[0].count,
+  ).toBe(2);
 });

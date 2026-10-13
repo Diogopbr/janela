@@ -3,12 +3,14 @@ const parameters = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 function derive(password: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(password, salt, 64, parameters, (error, key) => {
-      if (error) reject(error); else resolve(key);
+      if (error) reject(error);
+      else resolve(key);
     });
   });
 }
 export async function hashPassword(password: string): Promise<string> {
-  if ([...password].length < 12 || Buffer.byteLength(password, 'utf8') > 1024) throw new Error('Password must contain at least 12 characters and at most 1024 bytes');
+  if ([...password].length < 12 || Buffer.byteLength(password, 'utf8') > 1024)
+    throw new Error('Password must contain at least 12 characters and at most 1024 bytes');
   const salt = randomBytes(16);
   const key = await derive(password, salt);
   return `scrypt$32768$8$1$${salt.toString('hex')}$${key.toString('hex')}`;

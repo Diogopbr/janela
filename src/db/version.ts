@@ -1,1 +1,1 @@
-export const LATEST_MIGRATION = '001_access.sql';
+export const LATEST_MIGRATION = '002_reservations.sql';

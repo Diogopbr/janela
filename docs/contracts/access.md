@@ -43,5 +43,7 @@ esperar por ambientes em uso. `npm run cleanup -- 100` drena em lotes; aceita
 limites vencidos também são coletados em lotes. Identidades de visitante são
 preservadas para manter o vínculo entre gerações.
 
-Nesta etapa, o seed contém somente recursos. As reservas fictícias serão criadas
-pelos serviços reais de reserva antes de disponibilizar uma demonstração pública.
+O seed da demo cria quatro reservas e seus eventos pelo serviço real de criação,
+na mesma transação do ambiente. Para o próximo dia útil: Alameda 9h–10h/10h–11h,
+Brisa 14h–15h e Projetor 15h–16h. O Kit Áudio começa livre. Repetir start recupera
+a geração atual sem recriar exemplos ou estender sua validade.
