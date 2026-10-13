@@ -18,3 +18,6 @@ test('URL SSL parameters cannot silently disable verified TLS in the pg driver',
 test('database URL errors do not include credentials in diagnostics', () => {
   expect(() => poolOptionsFromURL('https://fixture:fixture@db.example/janela', true)).toThrow('PostgreSQL');
 });
+test('deployment ingress reads the documented project variable', () => {
+  expect(readConfig({ ...production, VERCEL: '1', JANELA_VERCEL_INGRESS: 'true' }).vercelIngress).toBe(true);
+});

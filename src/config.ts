@@ -30,6 +30,6 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const port = Number(env.PORT ?? 5091);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer between 1 and 65535');
   return { databaseUrl, sessionSecret, appUrl: appUrl.origin, port, production, tls,
-    vercelIngress: boolean('VERCEL_INGRESS', false), vercelRuntime: env.VERCEL === '1',
+    vercelIngress: boolean('JANELA_VERCEL_INGRESS', false), vercelRuntime: env.VERCEL === '1',
     demoEnabled: boolean('JANELA_DEMO_ENABLED', false), loginEnabled: boolean('JANELA_LOGIN_ENABLED', false) };
 }
