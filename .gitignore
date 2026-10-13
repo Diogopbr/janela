@@ -1,0 +1,14 @@
+/node_modules/
+/dist/
+/public/
+/.local/
+/.superpowers/
+/.worktrees/
+/.vercel/
+.env
+.env.*
+!.env.example
+/test-results/
+/playwright-report/
+*.log
+*.tsbuildinfo
