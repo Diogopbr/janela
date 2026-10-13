@@ -5,11 +5,29 @@ import { requiredScope } from '../http/scope.js';
 import { withWorkspace } from '../access/scope.js';
 import { consumeLimit } from '../access/limits.js';
 import { HttpError } from '../http/errors.js';
-import { ReservationService, uuidPattern, type ReservationInput } from './service.js';
+import {
+  ReservationService,
+  uuidPattern,
+  type ReservationInput,
+  type RescheduleInput,
+  type CancelInput,
+} from './service.js';
+import type { Scope } from '../access/scope.js';
 import { reservationProjection } from './projection.js';
 export function reservationRoutes(pool: Pool): Router {
   const router = Router();
   const service = new ReservationService(pool);
+  async function mutation(scope: Scope): Promise<void> {
+    await withWorkspace(pool, scope, async () => undefined);
+    if (scope.kind === 'demo') {
+      const client = await pool.connect();
+      try {
+        await consumeLimit(client, `mutation:visitor:${scope.visitorId}`, 60, 30);
+      } finally {
+        client.release();
+      }
+    }
+  }
   router.post('/reservations', async (request, response) => {
     const scope = requiredScope(request);
     const input: unknown = request.body;
@@ -22,17 +40,56 @@ export function reservationRoutes(pool: Pool): Router {
       keys.some((key) => typeof fields[key] !== 'string')
     )
       throw new HttpError(422, 'INVALID_INPUT', 'Dados de reserva inválidos.');
-    await withWorkspace(pool, scope, async () => undefined);
-    if (scope.kind === 'demo') {
-      const client = await pool.connect();
-      try {
-        await consumeLimit(client, `mutation:visitor:${scope.visitorId}`, 60, 30);
-      } finally {
-        client.release();
-      }
-    }
+    await mutation(scope);
     const result = await service.create(scope, fields as unknown as ReservationInput);
     response.status(result.replayed ? 200 : 201).json(result);
+  });
+  router.patch('/reservations/:id', async (request, response) => {
+    const scope = requiredScope(request),
+      id = request.params.id;
+    if (typeof id !== 'string' || !uuidPattern.test(id))
+      throw new HttpError(404, 'NOT_FOUND', 'Reserva não encontrada.');
+    const fields = request.body as Record<string, unknown> | null;
+    const keys = ['resourceId', 'startsAt', 'endsAt', 'purpose', 'reason', 'expectedVersion'];
+    if (
+      !fields ||
+      typeof fields !== 'object' ||
+      Array.isArray(fields) ||
+      Object.keys(fields).some((key) => !keys.includes(key)) ||
+      keys
+        .filter((key) => key !== 'expectedVersion')
+        .some((key) => typeof fields[key] !== 'string') ||
+      typeof fields.expectedVersion !== 'number' ||
+      !Number.isInteger(fields.expectedVersion) ||
+      fields.expectedVersion < 1
+    )
+      throw new HttpError(422, 'INVALID_INPUT', 'Dados de remarcação inválidos.');
+    await mutation(scope);
+    response.json({
+      reservation: await service.reschedule(scope, id, fields as unknown as RescheduleInput),
+    });
+  });
+  router.post('/reservations/:id/cancel', async (request, response) => {
+    const scope = requiredScope(request),
+      id = request.params.id;
+    if (typeof id !== 'string' || !uuidPattern.test(id))
+      throw new HttpError(404, 'NOT_FOUND', 'Reserva não encontrada.');
+    const fields = request.body as Record<string, unknown> | null;
+    if (
+      !fields ||
+      typeof fields !== 'object' ||
+      Array.isArray(fields) ||
+      Object.keys(fields).some((key) => !['reason', 'expectedVersion'].includes(key)) ||
+      typeof fields.reason !== 'string' ||
+      typeof fields.expectedVersion !== 'number' ||
+      !Number.isInteger(fields.expectedVersion) ||
+      fields.expectedVersion < 1
+    )
+      throw new HttpError(422, 'INVALID_INPUT', 'Informe motivo e versão para cancelar.');
+    await mutation(scope);
+    response.json({
+      reservation: await service.cancel(scope, id, fields as unknown as CancelInput),
+    });
   });
   router.get('/reservations/:id', async (request, response) => {
     const id = request.params.id;

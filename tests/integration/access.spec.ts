@@ -318,4 +318,30 @@ test('HTTP booking persists history, gives structured conflicts and rejects fore
     }),
   ]);
   expect(attempts.map((response) => response.status).sort()).toEqual([201, 409]);
+  const edit = {
+    resourceId: resource.id,
+    startsAt: `${day}T16:00:00-03:00`,
+    endsAt: `${day}T17:00:00-03:00`,
+    purpose: 'Ensaio fictício',
+    reason: 'Mudança fictícia',
+    expectedVersion: 1,
+  };
+  const rescheduled = await visitor.request(`/api/reservations/${reservation.id}`, {
+    method: 'PATCH',
+    body: edit,
+  });
+  expect(rescheduled.status).toBe(200);
+  expect((await rescheduled.json()).reservation.version).toBe(2);
+  const stale = await visitor.request(`/api/reservations/${reservation.id}`, {
+    method: 'PATCH',
+    body: edit,
+  });
+  expect(stale.status).toBe(409);
+  expect((await stale.json()).error.current.version).toBe(2);
+  const cancelled = await visitor.request(`/api/reservations/${reservation.id}/cancel`, {
+    method: 'POST',
+    body: { reason: 'Cancelamento fictício', expectedVersion: 2 },
+  });
+  expect(cancelled.status).toBe(200);
+  expect((await cancelled.json()).reservation.events).toHaveLength(3);
 });

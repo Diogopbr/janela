@@ -13,6 +13,18 @@ export interface ReservationInput {
   purpose: string;
   idempotencyKey: string;
 }
+export interface RescheduleInput {
+  resourceId: string;
+  startsAt: string;
+  endsAt: string;
+  purpose: string;
+  reason: string;
+  expectedVersion: number;
+}
+export interface CancelInput {
+  reason: string;
+  expectedVersion: number;
+}
 export const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function validateText(value: string, maximum: number): string {
   const text = value.trim();
@@ -30,12 +42,175 @@ export function validateText(value: string, maximum: number): string {
 }
 export class ReservationService {
   constructor(private readonly pool: Pool) {}
+  private async transaction<T>(scope: Scope, work: (client: PoolClient) => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await withWorkspace(this.pool, scope, work);
+      } catch (error) {
+        const transient =
+          typeof error === 'object' &&
+          error !== null &&
+          'code' in error &&
+          ['40P01', '40001'].includes(String(error.code));
+        if (!transient || attempt >= 2) throw error;
+      }
+    }
+  }
+  private async lockReservation(
+    client: PoolClient,
+    scope: Scope,
+    id: string,
+    expectedVersion: number,
+  ): Promise<ReservationProjection> {
+    if (!uuidPattern.test(id)) throw new HttpError(404, 'NOT_FOUND', 'Reserva não encontrada.');
+    const locked = await client.query(
+      'SELECT id FROM reservations WHERE workspace_id=$1 AND id=$2 FOR UPDATE',
+      [scope.id, id],
+    );
+    if (!locked.rowCount) throw new HttpError(404, 'NOT_FOUND', 'Reserva não encontrada.');
+    const current = await reservationProjection(client, scope.id, id);
+    if (current.version !== expectedVersion)
+      throw new HttpError(
+        409,
+        'VERSION_CONFLICT',
+        'A reserva foi alterada. Confira o estado atual antes de tentar novamente.',
+        undefined,
+        { current },
+      );
+    if (current.status === 'cancelled')
+      throw new HttpError(
+        409,
+        'RESERVATION_CLOSED',
+        'Uma reserva cancelada não pode ser alterada.',
+      );
+    const now = (await client.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+    if (new Date(current.startsAt).getTime() <= now.getTime())
+      throw new HttpError(409, 'RESERVATION_PAST', 'Reservas passadas são somente leitura.');
+    return current;
+  }
+  private snapshot(reservation: ReservationProjection) {
+    return {
+      id: reservation.id,
+      resourceId: reservation.resourceId,
+      startsAt: reservation.startsAt,
+      endsAt: reservation.endsAt,
+      purpose: reservation.purpose,
+      status: reservation.status,
+      version: reservation.version,
+    };
+  }
+  private async event(
+    client: PoolClient,
+    scope: Scope,
+    before: ReservationProjection,
+    action: 'rescheduled' | 'cancelled',
+    reason: string,
+  ): Promise<void> {
+    const after = await reservationProjection(client, scope.id, before.id);
+    await client.query(
+      'INSERT INTO reservation_events(id,workspace_id,reservation_id,actor_id,action,reason,before_snapshot,after_snapshot) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)',
+      [
+        randomUUID(),
+        scope.id,
+        before.id,
+        scope.userId,
+        action,
+        reason,
+        JSON.stringify(this.snapshot(before)),
+        JSON.stringify(this.snapshot(after)),
+      ],
+    );
+  }
+  async reschedule(
+    scope: Scope,
+    id: string,
+    input: RescheduleInput,
+  ): Promise<ReservationProjection> {
+    const reason = validateText(input.reason, 500),
+      purpose = validateText(input.purpose, 120);
+    if (!uuidPattern.test(input.resourceId))
+      throw new HttpError(422, 'INVALID_INPUT', 'Recurso inválido.');
+    try {
+      return await this.transaction(scope, async (client) => {
+        const current = await this.lockReservation(client, scope, id, input.expectedVersion);
+        const resource = (
+          await client.query('SELECT timezone FROM resources WHERE workspace_id=$1 AND id=$2', [
+            scope.id,
+            input.resourceId,
+          ])
+        ).rows[0];
+        if (!resource) throw new HttpError(404, 'NOT_FOUND', 'Recurso não encontrado.');
+        const now = (await client.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+        const times = validateTimes(input, resource.timezone, now.toISOString());
+        if (
+          current.resourceId === input.resourceId.toLowerCase() &&
+          new Date(current.startsAt).getTime() === new Date(times.startsAt).getTime() &&
+          new Date(current.endsAt).getTime() === new Date(times.endsAt).getTime()
+        )
+          throw new HttpError(
+            422,
+            'NO_CHANGE',
+            'Escolha outro recurso ou intervalo para remarcar.',
+          );
+        await client.query(
+          'UPDATE reservations SET resource_id=$3,starts_at=$4,ends_at=$5,purpose=$6,version=version+1 WHERE workspace_id=$1 AND id=$2',
+          [scope.id, id, input.resourceId, times.startsAt, times.endsAt, purpose],
+        );
+        await this.event(client, scope, current, 'rescheduled', reason);
+        const clock = (await client.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+        validateTimes(input, resource.timezone, clock.toISOString());
+        return reservationProjection(client, scope.id, id);
+      });
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        error.code === '23P01'
+      ) {
+        const conflicts = await withWorkspace(
+          this.pool,
+          scope,
+          async (client) =>
+            (
+              await client.query(
+                `SELECT id,starts_at AS "startsAt",ends_at AS "endsAt",purpose FROM reservations WHERE workspace_id=$1 AND resource_id=$2 AND id<>$3 AND status='confirmed' AND tstzrange(starts_at,ends_at,'[)') && tstzrange($4::timestamptz,$5::timestamptz,'[)') ORDER BY starts_at`,
+                [scope.id, input.resourceId, id, input.startsAt, input.endsAt],
+              )
+            ).rows,
+        );
+        throw new HttpError(
+          409,
+          'RESERVATION_CONFLICT',
+          'O recurso já está reservado nesse intervalo. Escolha outro horário.',
+          undefined,
+          { conflicts },
+        );
+      }
+      throw error;
+    }
+  }
+  async cancel(scope: Scope, id: string, input: CancelInput): Promise<ReservationProjection> {
+    const reason = validateText(input.reason, 500);
+    return this.transaction(scope, async (client) => {
+      const current = await this.lockReservation(client, scope, id, input.expectedVersion);
+      await client.query(
+        "UPDATE reservations SET status='cancelled',version=version+1 WHERE workspace_id=$1 AND id=$2",
+        [scope.id, id],
+      );
+      await this.event(client, scope, current, 'cancelled', reason);
+      const now = (await client.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+      if (new Date(current.startsAt).getTime() <= now.getTime())
+        throw new HttpError(409, 'RESERVATION_PAST', 'Reservas passadas são somente leitura.');
+      return reservationProjection(client, scope.id, id);
+    });
+  }
   async create(
     scope: Scope,
     input: ReservationInput,
   ): Promise<{ reservation: ReservationProjection; replayed: boolean }> {
     try {
-      return await withWorkspace(this.pool, scope, (client) =>
+      return await this.transaction(scope, (client) =>
         this.createInTransaction(client, scope, input),
       );
     } catch (error) {

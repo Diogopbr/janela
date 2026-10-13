@@ -49,3 +49,34 @@ mapeamento para uma resposta 201 e uma 409; não substituem a observação no ba
 
 Essas evidências são locais. CI, browser completo e execução hospedada ainda
 precisam de verificação antes da publicação.
+
+## Remarcar e cancelar
+
+`PATCH /api/reservations/:id` recebe `resourceId`, `startsAt`, `endsAt`, `purpose`,
+`reason` e `expectedVersion`. Exige mudança de recurso ou intervalo; editar somente
+a finalidade não representa remarcação. `POST /api/reservations/:id/cancel` recebe
+`reason` e `expectedVersion`. Motivos têm 3..500 caracteres, sem controles ou quebras.
+
+As duas ações bloqueiam ambiente e depois reserva. Versão divergente retorna 409
+`VERSION_CONFLICT` com `current`, para recuperação explícita do formulário.
+Reservas canceladas são terminais (`RESERVATION_CLOSED`); passadas são somente
+leitura (`RESERVATION_PAST`). Sucesso incrementa a versão e acrescenta um evento
+com snapshots antes/depois. Cancelar libera o intervalo, mas não repõe a quota.
+
+Conflito de remarcação devolve `RESERVATION_CONFLICT` e preserva horário, versão
+e eventos anteriores. Falha injetada por trigger após inserir o evento foi usada
+para comprovar rollback integral. Deadlock (`40P01`) ou falha de serialização
+(`40001`) repetem a transação inteira após rollback, no máximo duas vezes adicionais;
+não há efeitos externos nessas transações. A repetição revalida autorização,
+validade, versão e disponibilidade. Erros persistentes não são mascarados como sucesso.
+
+Processos independentes exercitam remarcação contra criação, outra remarcação e
+cancelamento, com espera observada no PostgreSQL antes de liberar a barreira.
+O observador aceita cadeias de bloqueio que chegam à conexão controladora:
+um segundo processo pode aguardar o primeiro, que aguarda a barreira.
+Cada disputa deixa um vencedor e histórico consistente.
+
+Outras provas observam expiração durante espera, revogação antes de obter lock
+e reset real aguardando uma mutação ativa. Expiração/revogação impedem commit da
+geração antiga; quando a mutação vence primeiro, seu evento precede a revogação.
+Uma nova tentativa com a geração encerrada recebe 404.

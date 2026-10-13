@@ -221,3 +221,64 @@ test('a persisted idempotent command can replay after its booking time has passe
     }),
   ).rejects.toMatchObject({ status: 422, code: 'INVALID_OFFSET' });
 });
+test('reschedule is versioned, conflicting changes roll back and cancellation is terminal', async () => {
+  const created = await service.create(scope, input('14:00', '15:00'));
+  const id = created.reservation.id;
+  const edit = { ...input('15:00', '16:00'), reason: 'Ajuste fictício', expectedVersion: 1 };
+  await expect(
+    service.reschedule(scope, id, { ...edit, expectedVersion: 2 }),
+  ).rejects.toMatchObject({ status: 409, code: 'VERSION_CONFLICT' });
+  await expect(
+    service.reschedule(scope, id, { ...edit, ...input('14:00', '15:00') }),
+  ).rejects.toMatchObject({ status: 422, code: 'NO_CHANGE' });
+  await expect(
+    service.reschedule(scope, id, { ...edit, ...input('09:00', '10:00') }),
+  ).rejects.toMatchObject({ status: 409, code: 'RESERVATION_CONFLICT' });
+  const unchanged = (
+    await pool.query('SELECT starts_at,version FROM reservations WHERE id=$1', [id])
+  ).rows[0];
+  expect(unchanged.starts_at.toISOString()).toBe(created.reservation.startsAt);
+  expect(unchanged.version).toBe(1);
+  expect(
+    (
+      await pool.query(
+        'SELECT count(*)::integer AS count FROM reservation_events WHERE reservation_id=$1',
+        [id],
+      )
+    ).rows[0].count,
+  ).toBe(1);
+  const changed = await service.reschedule(scope, id, edit);
+  expect(changed.version).toBe(2);
+  expect(changed.events).toHaveLength(2);
+  expect(changed.events[1]?.action).toBe('rescheduled');
+  await expect(
+    service.cancel(scope, id, { reason: 'Desistência fictícia', expectedVersion: 1 }),
+  ).rejects.toMatchObject({ status: 409 });
+  await expect(
+    service.cancel(scope, id, { reason: '  ', expectedVersion: 2 }),
+  ).rejects.toMatchObject({ status: 422 });
+  const cancelled = await service.cancel(scope, id, {
+    reason: 'Desistência fictícia',
+    expectedVersion: 2,
+  });
+  expect(cancelled.status).toBe('cancelled');
+  expect(cancelled.version).toBe(3);
+  expect(cancelled.events).toHaveLength(3);
+  await expect(
+    service.reschedule(scope, id, { ...edit, expectedVersion: 3 }),
+  ).rejects.toMatchObject({ status: 409, code: 'RESERVATION_CLOSED' });
+  await expect(
+    service.cancel(scope, id, { reason: 'Outra desistência', expectedVersion: 3 }),
+  ).rejects.toMatchObject({ status: 409, code: 'RESERVATION_CLOSED' });
+  const replacement = await service.create(scope, input('15:00', '16:00'));
+  expect(replacement.reservation.status).toBe('confirmed');
+  const past = (
+    await pool.query(
+      'SELECT id FROM reservations WHERE starts_at<clock_timestamp() AND workspace_id=$1 LIMIT 1',
+      [scope.id],
+    )
+  ).rows[0];
+  await expect(
+    service.cancel(scope, past.id, { reason: 'Passado fictício', expectedVersion: 1 }),
+  ).rejects.toMatchObject({ status: 409, code: 'RESERVATION_PAST' });
+});
