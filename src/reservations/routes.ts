@@ -96,11 +96,14 @@ export function reservationRoutes(pool: Pool): Router {
     if (typeof id !== 'string' || !uuidPattern.test(id))
       throw new HttpError(404, 'NOT_FOUND', 'Reserva não encontrada.');
     const scope = requiredScope(request);
-    response.json({
-      reservation: await withWorkspace(pool, scope, (client) =>
-        reservationProjection(client, scope.id, id),
-      ),
-    });
+    response.json(
+      await withWorkspace(pool, scope, async (client) => ({
+        reservation: await reservationProjection(client, scope.id, id),
+        serverNow: (
+          await client.query('SELECT clock_timestamp() AS now')
+        ).rows[0].now.toISOString(),
+      })),
+    );
   });
   router.get('/availability', async (request, response) => {
     const scope = requiredScope(request);

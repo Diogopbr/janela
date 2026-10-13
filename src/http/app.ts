@@ -5,6 +5,7 @@ import { LATEST_MIGRATION } from '../db/version.js';
 import { gateway } from './gateway.js';
 import { errorHandler } from './errors.js';
 import { accessRoutes, type AccessConfig } from '../access/routes.js';
+import { resolve } from 'node:path';
 export function createApp(dependencies: {
   pool: Pool;
   config?: { vercelIngress: boolean; vercelRuntime: boolean } & Partial<AccessConfig>;
@@ -41,6 +42,10 @@ export function createApp(dependencies: {
   });
   if (config.sessionSecret && config.appUrl)
     app.use('/api', accessRoutes(dependencies.pool, config as AccessConfig));
+  app.use(express.static(resolve('public'), { index: false, dotfiles: 'deny' }));
+  app.get(['/', '/entrar', '/agenda', '/reservas/:id'], (_request, response) => {
+    response.sendFile(resolve('public/index.html'));
+  });
   app.use((_request, response) => {
     response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurso não encontrado.' } });
   });

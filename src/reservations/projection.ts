@@ -17,9 +17,18 @@ export interface ReservationProjection {
     actor: string;
     createdAt: string;
     reason: string | null;
-    before: unknown;
-    after: unknown;
+    before: ReservationSnapshot | null;
+    after: ReservationSnapshot;
   }>;
+}
+export interface ReservationSnapshot {
+  id: string;
+  resourceId: string;
+  startsAt: string;
+  endsAt: string;
+  purpose: string;
+  status: 'confirmed' | 'cancelled';
+  version: number;
 }
 export async function reservationProjection(
   client: PoolClient,

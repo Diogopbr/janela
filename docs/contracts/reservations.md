@@ -47,8 +47,11 @@ consulta de sobreposição detecta o par. Essa prova não depende do lock de quo
 As requisições simultâneas em duas instâncias HTTP verificam separadamente o
 mapeamento para uma resposta 201 e uma 409; não substituem a observação no banco.
 
-Essas evidências são locais. CI, browser completo e execução hospedada ainda
-precisam de verificação antes da publicação.
+Essas evidências são locais. O navegador real também percorreu iniciar demo,
+criar, remarcar, cancelar e recarregar o histórico, com API e PostgreSQL reais.
+As quatro capturas desktop1440/mobile390 tiveram axe0, sem overflow horizontal
+ou erro JavaScript. Isso não substitui a suíte E2E completa nem execução hospedada:
+CI e publicação ainda precisam de verificação.
 
 ## Remarcar e cancelar
 

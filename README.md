@@ -22,9 +22,18 @@ durante o startup. Produção exige HTTPS, TLS verificado no banco e segredo de 
 Em 13/10/2026 passaram 39 testes locais, incluindo HTTP real, PostgreSQL e
 processos independentes para a prova de exclusão. Tipagem TypeScript, formatação
 e build React/Node passaram. Acesso, criação, remarcação e cancelamento estão
-implementados; interface final, CI e hospedagem ainda estão em implementação.
+implementados, com dez testes frontend. O navegador local percorreu iniciar,
+criar, remarcar, cancelar e recarregar o histórico. Capturas desktop1440/mobile390
+tiveram axe0, sem overflow horizontal ou erro JavaScript. CI e hospedagem pendentes.
 
 Contratos: [acesso](docs/contracts/access.md) e [reservas](docs/contracts/reservations.md).
+
+Interface: [sistema de design](DESIGN.md), fontes locais com licenças e agenda
+proporcional no desktop; no celular, reservas aparecem como registros rotulados.
+
+![Entrada com exemplo fictício de sobreposição](docs/screenshots/entrada.png)
+
+![Agenda de recursos com editor ao lado](docs/screenshots/agenda.png)
 
 Requisitos: Node 24.15 ou superior da série 24, npm 11.12.1 e PostgreSQL 17.
 Instale com `npm ci`, configure as variáveis de `.env.example`, aplique

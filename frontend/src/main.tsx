@@ -1,9 +1,11 @@
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { App } from './App';
+import './styles.css';
 const root = document.getElementById('root');
 if (!root) throw new Error('Application root missing');
 createRoot(root).render(
-  <main>
-    <h1>Janela</h1>
-    <p>Ambiente em preparação.</p>
-  </main>,
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>,
 );
