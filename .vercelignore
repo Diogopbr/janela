@@ -3,6 +3,9 @@
 .impeccable/
 .worktrees/
 .git/
+public/
+dist/
+node_modules/
 AGENTS.md
 docs/
 tests/
