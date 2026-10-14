@@ -49,9 +49,56 @@ test('real booking conflict preserves draft, then reschedule/cancel/history pers
   await expect(page.getByText('Cancelada · versão 3', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText('Cancelada · versão 3', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Voltar à agenda' }).click();
+  await page.getByLabel('Recurso', { exact: true }).selectOption({ label: 'Sala Brisa' });
+  await page.getByLabel('Mostrar reservas canceladas').check();
+  const cancelled = page
+    .locator('button.booking-row')
+    .filter({ hasText: 'E2E fictício remarcado' });
+  await expect(cancelled).toContainText('intervalo liberado');
+  await cancelled.click();
+  await expect(page.getByText('Cancelada · versão 3', { exact: true })).toBeVisible();
+  await expect(page.locator('.history')).toContainText('Kit Áudio 01');
+  await expect(page.locator('.history')).toContainText('Sala Brisa');
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('cancellation recovers a newer version from another tab without losing its reason', async ({
+  page,
+}) => {
+  await start(page);
+  await page.getByLabel('Recurso', { exact: true }).selectOption({ label: 'Kit Áudio 01' });
+  await fill(page, 'Concorrência fictícia');
+  await page.getByRole('button', { name: 'Confirmar reserva' }).click();
+  await expect(page.getByText('Reserva confirmada.', { exact: true })).toBeVisible();
+  await page.locator('button.booking-row').filter({ hasText: 'Concorrência fictícia' }).click();
+  const other = await page.context().newPage();
+  try {
+    await other.goto(page.url());
+    await page.getByRole('button', { name: 'Cancelar reserva', exact: true }).click();
+    await page.getByLabel('Motivo do cancelamento').fill('Motivo mantido entre versões');
+    await other.getByRole('button', { name: 'Remarcar', exact: true }).click();
+    await fill(other, 'Concorrência fictícia', '16:00', '17:00');
+    await other.getByLabel('Motivo da remarcação').fill('Outra aba alterou o intervalo');
+    await other.getByRole('button', { name: 'Salvar remarcação' }).click();
+    await expect(other.getByText('Confirmada · versão 2', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+    await expect(page.getByRole('alert')).toContainText('versão 2');
+    await expect(page.getByLabel('Motivo do cancelamento')).toHaveValue(
+      'Motivo mantido entre versões',
+    );
+    await page.getByRole('button', { name: 'Carregar estado atual' }).click();
+    await expect(page.getByText('Confirmada · versão 2', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('Motivo do cancelamento')).toHaveValue(
+      'Motivo mantido entre versões',
+    );
+    await page.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+    await expect(page.getByText('Cancelada · versão 3', { exact: true })).toBeVisible();
+  } finally {
+    await other.close();
+  }
 });
 test('another visitor cannot read a booking and reset in another tab refuses an old draft', async ({
   page,

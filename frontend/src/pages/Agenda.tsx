@@ -10,13 +10,16 @@ export function Agenda(props: { workspace: Workspace }) {
   const [date, setDate] = useState(() => nextBusinessDay());
   const [chosen, setChosen] = useState(''),
     [selection, setSelection] = useState<{ start: string; end: string }>();
+  const [includeCancelled, setIncludeCancelled] = useState(false);
   const resources = useQuery<{ resources: Resource[] }>('/resources', props.workspace.id);
   const resource =
     resources.data?.resources.find((item) => item.id === chosen) ??
     resources.data?.resources.find((item) => item.name === 'Sala Alameda') ??
     resources.data?.resources[0];
   const agenda = useQuery<Availability>(
-    resource ? `/availability?resourceId=${resource.id}&date=${date}` : null,
+    resource
+      ? `/availability?resourceId=${resource.id}&date=${date}&includeCancelled=${includeCancelled}`
+      : null,
     props.workspace.id,
   );
   return (
@@ -101,6 +104,14 @@ export function Agenda(props: { workspace: Workspace }) {
           </button>
         </div>
       )}
+      <label className="history-toggle">
+        <input
+          type="checkbox"
+          checked={includeCancelled}
+          onChange={(event) => setIncludeCancelled(event.target.checked)}
+        />
+        Mostrar reservas canceladas
+      </label>
       <div className="agenda-workspace">
         <div>
           {agenda.loading || resources.loading ? (

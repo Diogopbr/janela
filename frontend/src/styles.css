@@ -352,6 +352,24 @@ main {
   gap: 40px;
   align-items: start;
 }
+.history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-bottom: 24px;
+  font-weight: 400;
+}
+.history-toggle input {
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--olive);
+}
+.booking-row.is-cancelled {
+  color: #70483c;
+}
 .editor-region {
   border-left: 1px solid var(--line);
   padding-left: 32px;

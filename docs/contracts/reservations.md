@@ -23,7 +23,9 @@ restritos ao próprio ambiente. O cliente preserva o formulário e recarrega a a
 
 `GET /api/availability?resourceId=<uuid>&date=YYYY-MM-DD` devolve recurso, data,
 zona, relógio do servidor e reservas confirmadas que ocupam o dia. A consulta
-não garante posse de um intervalo. `GET /api/reservations/:id` devolve a reserva
+aceita `includeCancelled=true` para consultar também as canceladas do mesmo
+ambiente. Elas aparecem na lista com acesso ao histórico e não ocupam a grade.
+A consulta não garante posse de um intervalo. `GET /api/reservations/:id` devolve a reserva
 e histórico com ator, instante e snapshots. Recurso ou reserva alheios retornam 404.
 
 O ambiente demo tem limite total de 20 reservas, incluindo os quatro exemplos.

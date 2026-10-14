@@ -19,14 +19,15 @@ migrations transacionais com checksum e endpoint `/health/ready`. A prontidão
 retorna 503 antes das migrations e 200 após sua aplicação; não executa migrations
 durante o startup. Produção exige HTTPS, TLS verificado no banco e segredo de sessão.
 
-Em 13/10/2026 passaram 39 testes locais, incluindo HTTP real, PostgreSQL e
+Em 13/10/2026 passaram 40 testes backend locais, incluindo HTTP real, PostgreSQL e
 processos independentes para a prova de exclusão. Tipagem TypeScript, formatação
 e build React/Node passaram. Acesso, criação, remarcação e cancelamento estão
-implementados, com dez testes frontend. O navegador local percorreu iniciar,
+implementados, com 12 testes frontend. O navegador local percorreu iniciar,
 criar, remarcar, cancelar e recarregar o histórico. Capturas desktop1440/mobile390
 tiveram axe0, sem overflow horizontal ou erro JavaScript. CI e hospedagem pendentes.
 
-Os três cenários Playwright passaram juntos no banco isolado de teste. Evidências
+Os quatro cenários Playwright passaram juntos no banco isolado de teste, incluindo
+recuperação de conflito entre abas e consulta de reservas canceladas. Evidências
 e limites em [verificação local](docs/evidence/verification.md). No Windows
 preparado, `./scripts/verify.ps1` executa todos os checks e migrations somente
 em `janela_test`.

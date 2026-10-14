@@ -459,3 +459,93 @@ test('a real reset waits for an active mutation then revokes the entire old gene
     holder.release();
   }
 });
+test('a reschedule waiting on destination exclusion cannot move an original booking that starts during the wait', async () => {
+  const resource = randomUUID();
+  await pool.query('INSERT INTO resources(id,workspace_id,name) VALUES($1,$2,$3)', [
+    resource,
+    scope.id,
+    'Original start boundary',
+  ]);
+  const id = randomUUID();
+  const original = (
+    await pool.query(
+      "INSERT INTO reservations(id,workspace_id,resource_id,actor_id,starts_at,ends_at,purpose) VALUES($1,$2,$3,$4,clock_timestamp()+interval '2 seconds',clock_timestamp()+interval '1 hour 2 seconds','Boundary fixture') RETURNING *",
+      [id, scope.id, resource, scope.userId],
+    )
+  ).rows[0];
+  await pool.query(
+    "INSERT INTO reservation_events(id,workspace_id,reservation_id,actor_id,action,after_snapshot) VALUES($1,$2,$3,$4,'created',$5::jsonb)",
+    [
+      randomUUID(),
+      scope.id,
+      id,
+      scope.userId,
+      JSON.stringify({
+        id,
+        resourceId: resource,
+        startsAt: original.starts_at.toISOString(),
+        endsAt: original.ends_at.toISOString(),
+        purpose: 'Boundary fixture',
+        status: 'confirmed',
+        version: 1,
+      }),
+    ],
+  );
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    const holderPid = (await holder.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    const target = { ...input('16:00', '17:00'), resourceId: resource };
+    await holder.query(
+      'INSERT INTO reservations(id,workspace_id,resource_id,actor_id,starts_at,ends_at,purpose) VALUES($1,$2,$3,$4,$5,$6,$7)',
+      [
+        randomUUID(),
+        scope.id,
+        resource,
+        scope.userId,
+        target.startsAt,
+        target.endsAt,
+        'Destination barrier',
+      ],
+    );
+    const contender = worker();
+    const ready = await contender.next('ready');
+    contender.child.send({
+      action: 'reschedule',
+      scope,
+      id,
+      input: { ...target, reason: 'Past start boundary', expectedVersion: 1 },
+    });
+    await observeBlocked([ready.pid!], holderPid);
+    let passed = false;
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      passed = (
+        await pool.query(
+          'SELECT starts_at<=clock_timestamp() AS passed FROM reservations WHERE id=$1',
+          [id],
+        )
+      ).rows[0].passed;
+      if (passed) break;
+    }
+    expect(passed).toBe(true);
+    await holder.query('ROLLBACK');
+    expect(await contender.next('result')).toMatchObject({ status: 409, code: 'RESERVATION_PAST' });
+    const unchanged = (
+      await pool.query('SELECT starts_at,version FROM reservations WHERE id=$1', [id])
+    ).rows[0];
+    expect(unchanged.starts_at.toISOString()).toBe(original.starts_at.toISOString());
+    expect(unchanged.version).toBe(1);
+    expect(
+      (
+        await pool.query(
+          'SELECT count(*)::integer AS count FROM reservation_events WHERE reservation_id=$1',
+          [id],
+        )
+      ).rows[0].count,
+    ).toBe(1);
+  } finally {
+    await holder.query('ROLLBACK');
+    holder.release();
+  }
+});

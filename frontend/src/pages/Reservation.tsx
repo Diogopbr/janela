@@ -1,12 +1,31 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Temporal } from '@js-temporal/polyfill';
 import { useQuery } from '../useQuery';
 import { apiFetch, ApiError } from '../api';
 import { localTime } from '../dates';
 import type { Workspace } from '../types';
-import type { ReservationProjection } from '../../../src/reservations/projection';
+import type {
+  ReservationProjection,
+  ReservationSnapshot,
+} from '../../../src/reservations/projection';
 import { ReservationForm, type Resource } from '../components/ReservationForm';
+function snapshotText(
+  snapshot: ReservationSnapshot,
+  resources: Resource[],
+  fallbackTimeZone: string,
+): string {
+  const resource = resources.find((item) => item.id === snapshot.resourceId);
+  const zone = resource?.timeZone ?? fallbackTimeZone;
+  const date = Temporal.Instant.from(snapshot.startsAt)
+    .toZonedDateTimeISO(zone)
+    .toPlainDate()
+    .toString()
+    .split('-')
+    .reverse()
+    .join('/');
+  return `${resource?.name ?? 'Recurso não disponível'} · ${date} · ${localTime(snapshot.startsAt, zone)}–${localTime(snapshot.endsAt, zone)} · ${zone} · ${snapshot.status === 'cancelled' ? 'cancelada' : 'confirmada'}`;
+}
 export function Reservation(props: { workspace: Workspace }) {
   const { id } = useParams();
   const query = useQuery<{ reservation: ReservationProjection; serverNow: string }>(
@@ -18,7 +37,11 @@ export function Reservation(props: { workspace: Workspace }) {
     [cancelling, setCancelling] = useState(false),
     [reason, setReason] = useState(''),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState<ApiError | null>(null);
+  const errorFocus = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorFocus.current?.focus();
+  }, [error]);
   const reservation = query.data?.reservation;
   if (query.loading && !query.data)
     return (
@@ -47,7 +70,7 @@ export function Reservation(props: { workspace: Workspace }) {
     Date.parse(reservation.startsAt) > Date.parse(query.data!.serverNow);
   async function cancel() {
     setBusy(true);
-    setError('');
+    setError(null);
     try {
       await apiFetch(
         `/reservations/${reservation!.id}/cancel`,
@@ -59,8 +82,8 @@ export function Reservation(props: { workspace: Workspace }) {
     } catch (caught) {
       setError(
         caught instanceof ApiError
-          ? caught.message
-          : 'Não foi possível cancelar. Seu motivo foi preservado.',
+          ? caught
+          : new ApiError(0, 'UNAVAILABLE', 'Não foi possível cancelar. Seu motivo foi preservado.'),
       );
     } finally {
       setBusy(false);
@@ -162,9 +185,38 @@ export function Reservation(props: { workspace: Workspace }) {
             />
           </label>
           {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
+            <div className="form-error" role="alert" ref={errorFocus} tabIndex={-1}>
+              <p>{error.message}</p>
+              <p>Seu motivo foi preservado.</p>
+              {error.current && (
+                <p>
+                  Estado atual: {error.current.resourceName} ·{' '}
+                  {Temporal.Instant.from(error.current.startsAt)
+                    .toZonedDateTimeISO(error.current.timeZone)
+                    .toPlainDate()
+                    .toString()
+                    .split('-')
+                    .reverse()
+                    .join('/')}{' '}
+                  · {localTime(error.current.startsAt, error.current.timeZone)}–
+                  {localTime(error.current.endsAt, error.current.timeZone)} ·{' '}
+                  {error.current.status === 'cancelled' ? 'cancelada' : 'confirmada'} · versão{' '}
+                  {error.current.version}.
+                </p>
+              )}
+              {error.status === 409 && (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => {
+                    query.reload();
+                    setError(null);
+                  }}
+                >
+                  Carregar estado atual
+                </button>
+              )}
+            </div>
           )}
           <button className="button-danger" disabled={busy}>
             {busy ? 'Cancelando…' : 'Confirmar cancelamento'}
@@ -198,9 +250,10 @@ export function Reservation(props: { workspace: Workspace }) {
               </p>
               {event.before && typeof event.before === 'object' && 'startsAt' in event.before && (
                 <p>
-                  Antes: {localTime(String(event.before.startsAt), reservation.timeZone)}–
-                  {localTime(
-                    String((event.before as { endsAt: string }).endsAt),
+                  Antes:{' '}
+                  {snapshotText(
+                    event.before,
+                    resources.data?.resources ?? [],
                     reservation.timeZone,
                   )}
                   .
@@ -208,15 +261,8 @@ export function Reservation(props: { workspace: Workspace }) {
               )}
               {event.after && typeof event.after === 'object' && 'startsAt' in event.after && (
                 <p>
-                  Registrado: {localTime(String(event.after.startsAt), reservation.timeZone)}–
-                  {localTime(
-                    String((event.after as { endsAt: string }).endsAt),
-                    reservation.timeZone,
-                  )}{' '}
-                  ·{' '}
-                  {(event.after as { status: string }).status === 'cancelled'
-                    ? 'cancelada'
-                    : 'confirmada'}
+                  Registrado:{' '}
+                  {snapshotText(event.after, resources.data?.resources ?? [], reservation.timeZone)}
                   .
                 </p>
               )}

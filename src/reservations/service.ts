@@ -158,6 +158,8 @@ export class ReservationService {
         );
         await this.event(client, scope, current, 'rescheduled', reason);
         const clock = (await client.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;
+        if (new Date(current.startsAt).getTime() <= clock.getTime())
+          throw new HttpError(409, 'RESERVATION_PAST', 'Reservas passadas são somente leitura.');
         validateTimes(input, resource.timezone, clock.toISOString());
         return reservationProjection(client, scope.id, id);
       });

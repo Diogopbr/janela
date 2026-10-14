@@ -30,9 +30,9 @@ export function DaySchedule(props: {
           {Array.from({ length: 36 }, (_, index) => {
             const start = 540 + index * 15,
               end = Math.min(1080, start + 60);
-            const occupied = props.availability.reservations.some(
-              (item) => minutes(item.startsAt) < start + 15 && minutes(item.endsAt) > start,
-            );
+            const occupied = props.availability.reservations
+              .filter((item) => item.status === 'confirmed')
+              .some((item) => minutes(item.startsAt) < start + 15 && minutes(item.endsAt) > start);
             return (
               <button
                 type="button"
@@ -44,39 +44,41 @@ export function DaySchedule(props: {
               />
             );
           })}
-          {props.availability.reservations.map((item) => (
-            <button
-              type="button"
-              className={`booking-block${minutes(item.endsAt) - minutes(item.startsAt) <= 15 ? ' is-short' : minutes(item.endsAt) - minutes(item.startsAt) <= 30 ? ' is-medium' : ''}`}
-              aria-label={`${localTime(item.startsAt, props.availability.timeZone)} até ${localTime(item.endsAt, props.availability.timeZone)}, ${item.purpose}, confirmada. Ver histórico.`}
-              key={item.id}
-              style={{
-                top: `${((minutes(item.startsAt) - 540) / 540) * 100}%`,
-                height: `${((minutes(item.endsAt) - minutes(item.startsAt)) / 540) * 100}%`,
-              }}
-              onClick={() => props.onOpen(item.id)}
-            >
-              <strong>
-                {localTime(item.startsAt, props.availability.timeZone)}–
-                {localTime(item.endsAt, props.availability.timeZone)}
-              </strong>
-              {minutes(item.endsAt) - minutes(item.startsAt) > 15 && <span>{item.purpose}</span>}
-              {minutes(item.endsAt) - minutes(item.startsAt) > 30 && (
-                <span className="booking-state">Confirmada</span>
-              )}
-            </button>
-          ))}
+          {props.availability.reservations
+            .filter((item) => item.status === 'confirmed')
+            .map((item) => (
+              <button
+                type="button"
+                className={`booking-block${minutes(item.endsAt) - minutes(item.startsAt) <= 15 ? ' is-short' : minutes(item.endsAt) - minutes(item.startsAt) <= 30 ? ' is-medium' : ''}`}
+                aria-label={`${localTime(item.startsAt, props.availability.timeZone)} até ${localTime(item.endsAt, props.availability.timeZone)}, ${item.purpose}, confirmada. Ver histórico.`}
+                key={item.id}
+                style={{
+                  top: `${((minutes(item.startsAt) - 540) / 540) * 100}%`,
+                  height: `${((minutes(item.endsAt) - minutes(item.startsAt)) / 540) * 100}%`,
+                }}
+                onClick={() => props.onOpen(item.id)}
+              >
+                <strong>
+                  {localTime(item.startsAt, props.availability.timeZone)}–
+                  {localTime(item.endsAt, props.availability.timeZone)}
+                </strong>
+                {minutes(item.endsAt) - minutes(item.startsAt) > 15 && <span>{item.purpose}</span>}
+                {minutes(item.endsAt) - minutes(item.startsAt) > 30 && (
+                  <span className="booking-state">Confirmada</span>
+                )}
+              </button>
+            ))}
         </div>
       </div>
       <div className="schedule-list">
-        <h3>Reservas confirmadas</h3>
+        <h3>Reservas do dia</h3>
         {props.availability.reservations.length === 0 ? (
           <p>Nenhuma reserva neste dia. Escolha o intervalo no formulário para confirmar.</p>
         ) : (
           props.availability.reservations.map((item) => (
             <button
               type="button"
-              className="booking-row"
+              className={`booking-row${item.status === 'cancelled' ? ' is-cancelled' : ''}`}
               key={item.id}
               onClick={() => props.onOpen(item.id)}
             >
@@ -85,7 +87,10 @@ export function DaySchedule(props: {
                 {localTime(item.endsAt, props.availability.timeZone)}
               </span>
               <strong>{item.purpose}</strong>
-              <span>Confirmada · ver histórico</span>
+              <span>
+                {item.status === 'cancelled' ? 'Cancelada · intervalo liberado' : 'Confirmada'} ·
+                ver histórico
+              </span>
             </button>
           ))
         )}

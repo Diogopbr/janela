@@ -344,4 +344,21 @@ test('HTTP booking persists history, gives structured conflicts and rejects fore
   });
   expect(cancelled.status).toBe(200);
   expect((await cancelled.json()).reservation.events).toHaveLength(3);
+  const withHistory = await visitor.request(
+    `/api/availability?resourceId=${resource.id}&date=${day}&includeCancelled=true`,
+  );
+  expect(withHistory.status).toBe(200);
+  expect(
+    (await withHistory.json()).reservations.find(
+      (item: { id: string }) => item.id === reservation.id,
+    )?.status,
+  ).toBe('cancelled');
+  const confirmedOnly = await visitor.request(
+    `/api/availability?resourceId=${resource.id}&date=${day}`,
+  );
+  expect(
+    (await confirmedOnly.json()).reservations.some(
+      (item: { id: string }) => item.id === reservation.id,
+    ),
+  ).toBe(false);
 });

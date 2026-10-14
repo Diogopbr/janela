@@ -109,6 +109,9 @@ export function reservationRoutes(pool: Pool): Router {
     const scope = requiredScope(request);
     const resourceId = request.query.resourceId,
       date = request.query.date;
+    const includeCancelled = request.query.includeCancelled;
+    if (includeCancelled !== undefined && !['true', 'false'].includes(String(includeCancelled)))
+      throw new HttpError(422, 'INVALID_INPUT', 'Filtro de canceladas inválido.');
     if (
       typeof resourceId !== 'string' ||
       !uuidPattern.test(resourceId) ||
@@ -135,8 +138,8 @@ export function reservationRoutes(pool: Pool): Router {
       const reservations = (
         await client.query(
           `SELECT id,resource_id AS "resourceId",starts_at AS "startsAt",ends_at AS "endsAt",purpose,status,version FROM reservations
-        WHERE workspace_id=$1 AND resource_id=$2 AND status='confirmed' AND starts_at<$4::timestamptz AND ends_at>$3::timestamptz ORDER BY starts_at,id`,
-          [scope.id, resourceId, start, end],
+        WHERE workspace_id=$1 AND resource_id=$2 AND (status='confirmed' OR $5::boolean) AND starts_at<$4::timestamptz AND ends_at>$3::timestamptz ORDER BY starts_at,id`,
+          [scope.id, resourceId, start, end, includeCancelled === 'true'],
         )
       ).rows;
       const now = (await client.query('SELECT clock_timestamp() AS now')).rows[0].now as Date;

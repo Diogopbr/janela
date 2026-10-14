@@ -1,13 +1,13 @@
 # Verificação local
 
-Em 13/10/2026, `scripts/verify.ps1` concluiu no Windows com Node24.15 e
+Em 13/10/2026, os checks de `scripts/verify.ps1` passaram no Windows com Node24.15 e
 PostgreSQL17.10 no cluster privado, sem migrar o banco principal para testar:
 
-- 39 testes backend em dez arquivos, com PostgreSQL real e processos independentes.
-- 10 testes frontend em quatro arquivos, incluindo preservação de rascunho,
+- 40 testes backend em dez arquivos, com PostgreSQL real e processos independentes.
+- 12 testes frontend em quatro arquivos, incluindo preservação de rascunho,
   versões, geração antiga e respostas fora de ordem.
 - Typecheck TypeScript, formatação e build React/Node.
-- Três cenários Playwright completos, juntos em6,0s, usando apenas `janela_test`.
+- Quatro cenários Playwright completos, juntos em7,6s, usando apenas `janela_test`.
 - `git diff --check` sem erros após remover uma linha vazia final da documentação.
 
 ## Fluxos de navegador
@@ -20,6 +20,14 @@ PostgreSQL17.10 no cluster privado, sem migrar o banco principal para testar:
 3. Teclado: entrada, seleção de intervalo, finalidade, confirmação, abertura
    do detalhe e cancelamento. O diálogo de reset contém Tab entre suas ações,
    fecha com Escape e devolve foco ao controle original.
+4. Uma aba remarca enquanto outra tenta cancelar a versão anterior. O conflito
+   mostra o estado atual, mantém o motivo e permite carregá-lo explicitamente
+   antes de confirmar o cancelamento com a nova versão.
+
+O primeiro cenário também volta à agenda após cancelar, ativa a consulta das
+canceladas e reabre seu histórico. Snapshots identificam recurso, data e zona.
+A suíte backend observa uma remarcação bloqueada no PostgreSQL ultrapassar o
+início original: a operação recebe409 e mantém reserva e eventos inalterados.
 
 Não há API de negócio mockada nesses fluxos. Os mocks dos testes de componentes
 verificam recuperação de estados, separadamente da prova HTTP/PostgreSQL.
@@ -47,5 +55,5 @@ Tokens e componentes atuais estão em DESIGN.md; screenshots reais em docs/scree
 A CI Linux está configurada, mas ainda não foi executada remotamente. Não há
 deploy, URL pública, prova de HTTPS/cookies hospedados ou publicação social do
 Janela. Build local não declara comportamento da plataforma de hospedagem.
-O build ainda informa um chunk agregado próximo de662KB minificado; a análise
+O build ainda informa um chunk agregado próximo de664KB minificado; a análise
 de carregamento pode motivar divisão por rota antes da publicação.
