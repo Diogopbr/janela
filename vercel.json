@@ -3,6 +3,11 @@
   "framework": "express",
   "regions": ["gru1"],
   "buildCommand": "npm run build",
+  "functions": {
+    "src/index.ts": {
+      "excludeFiles": "{frontend,tests,scripts,database,docs,.local,.superpowers,.impeccable,.vercel}/**"
+    }
+  },
   "rewrites": [
     { "source": "/", "destination": "/index.html" },
     { "source": "/entrar", "destination": "/index.html" },

@@ -1,13 +1,15 @@
-import express, { type Express } from 'express';
+import express, { type Express, type RequestHandler } from 'express';
 import type { Pool } from 'pg';
-import helmet from 'helmet';
+import { createRequire } from 'node:module';
 import { LATEST_MIGRATION } from '../db/version.js';
 import { gateway } from './gateway.js';
 import { errorHandler } from './errors.js';
 import { accessRoutes, type AccessConfig } from '../access/routes.js';
-import { resolve } from 'node:path';
+// Helmet's CommonJS entry is callable; resolve it explicitly across Node builders.
+const helmet = createRequire(import.meta.url)('helmet') as typeof import('helmet').default;
 export function createApp(dependencies: {
   pool: Pool;
+  assets?: RequestHandler;
   config?: { vercelIngress: boolean; vercelRuntime: boolean } & Partial<AccessConfig>;
 }): Express {
   const app = express();
@@ -42,10 +44,7 @@ export function createApp(dependencies: {
   });
   if (config.sessionSecret && config.appUrl)
     app.use('/api', accessRoutes(dependencies.pool, config as AccessConfig));
-  app.use(express.static(resolve('public'), { index: false, dotfiles: 'deny' }));
-  app.get(['/', '/entrar', '/agenda', '/reservas/:id'], (_request, response) => {
-    response.sendFile(resolve('public/index.html'));
-  });
+  if (dependencies.assets) app.use(dependencies.assets);
   app.use((_request, response) => {
     response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurso não encontrado.' } });
   });

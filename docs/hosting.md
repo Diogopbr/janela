@@ -4,6 +4,11 @@ O Janela usa uma função Express na Vercel, região São Paulo (`gru1`), e asse
 React em `public/` servidos pelo CDN. As quatro rotas de navegação recebem
 `index.html`; `/api/*` e `/health/ready` permanecem no servidor Express.
 O build compila a interface e o backend, sem migrar ou semear o banco.
+O servidor local recebe um router de assets próprio; a entrada publicada contém
+somente a API. Isso evita que o rastreamento da função tente compilar fontes
+React ou incluir arquivos de desenvolvimento. O build da Vercel foi reproduzido
+localmente e passou após essa separação. Helmet é resolvido pela entrada CommonJS
+callable do pacote para manter o mesmo middleware nos dois compiladores.
 
 ## Banco e permissões
 
