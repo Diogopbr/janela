@@ -37,12 +37,15 @@ Modo normal exige instalação explícita de credenciais próprias.
 
 ## Evidence on Hand
 
-39 testes de backend passaram, incluindo duas instâncias HTTP e processos PostgreSQL
+40 testes de backend passaram, incluindo duas instâncias HTTP e processos PostgreSQL
 independentes com espera observada e controle negativo da exclusão. O navegador local
 percorreu iniciar demo, criar, remarcar, cancelar e recarregar o histórico. Capturas
 desktop1440/mobile390 tiveram axe0, sem overflow horizontal ou erro JavaScript.
 Tipagem e build passaram. A revisão visual marcou as três correções solicitadas
-como resolvidas. CI e publicação ainda pendentes.
+como resolvidas. Os 12 testes frontend e os quatro fluxos E2E locais passaram.
+A CI Linux passou, e os quatro fluxos também passaram na Vercel com Neon real,
+incluindo versões concorrentes e consulta de canceladas. Sessão e reserva foram
+mantidas após redeploy; cookies, CSRF e arquivos privados foram verificados.
 Contratos e limitações estão em docs/contracts. Não há clientes ou receita a alegar.
 
 ## Product Principles

@@ -50,10 +50,20 @@ igual à viewport e nenhum pageerror. A revisão independente solicitou três
 correções e depois marcou todas como resolvidas; o parecer cobre essas correções.
 Tokens e componentes atuais estão em DESIGN.md; screenshots reais em docs/screenshots.
 
+## Publicação verificada
+
+A CI Linux [38500030936](https://github.com/Diogopbr/janela/actions/runs/38500030936)
+passou no commit7c96e0a14506259d7344433dc8a4c8344d1ea6ff.
+Os quatro cenários completos passaram em 22,3s na demonstração pública, com API e
+Neon reais. Readiness/auth retornaram JSON 200; página e fontes retornaram 200.
+Cookie Secure/HttpOnly/Lax, CSRF 419 e cinco caminhos privados 404 passaram.
+Depois de redeploy, a mesma sessão abriu a mesma reserva/geração e cancelou o
+intervalo; axe0 e nenhum pageerror nesse percurso. Capturas publicadas foram
+atualizadas com o runtime hospedado.
+
 ## Limites da evidência
 
-A CI Linux está configurada, mas ainda não foi executada remotamente. Não há
-deploy, URL pública, prova de HTTPS/cookies hospedados ou publicação social do
-Janela. Build local não declara comportamento da plataforma de hospedagem.
-O build ainda informa um chunk agregado próximo de664KB minificado; a análise
-de carregamento pode motivar divisão por rota antes da publicação.
+Não houve publicação social. O build de desenvolvimento local informa um chunk
+próximo de664KB minificado; o build remoto de produção gerou444KB/135KB gzip.
+Não foi realizado benchmark de carregamento ou teste de volume. Essa diferença
+de build não representa uma otimização medida nem dispensa avaliação futura.

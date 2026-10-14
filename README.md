@@ -1,16 +1,17 @@
 # Janela
 
 Reserva de espaços e equipamentos com React, Node.js/TypeScript e PostgreSQL.
-Projeto de portfólio de Diogo Pereira, em implementação na pasta3.
+Projeto de portfólio de Diogo Pereira.
 
-O fluxo planejado permite reservar, remarcar, cancelar e consultar histórico.
-A regra central será impedir sobreposição no banco, incluindo confirmação
+O fluxo permite reservar, remarcar, cancelar e consultar histórico.
+A regra central impede sobreposição no banco, incluindo confirmação
 simultânea, e explicar o conflito sem descartar o formulário.
 
 [Especificação](docs/superpowers/specs/2026-10-10-janela-design.md).
 
-Não há aplicação publicada nesta etapa. Demonstração e
-dados serão fictícios; sem pagamentos, feriados, recorrência ou calendário externo.
+[Experimentar a demonstração](https://janela-diogopbr.vercel.app).
+Cada visitante recebe seu ambiente privado com dados fictícios, válido por 24h.
+Sem pagamentos, feriados, recorrência ou calendário externo.
 
 ## Fundação verificada
 
@@ -24,13 +25,18 @@ processos independentes para a prova de exclusão. Tipagem TypeScript, formataç
 e build React/Node passaram. Acesso, criação, remarcação e cancelamento estão
 implementados, com 12 testes frontend. O navegador local percorreu iniciar,
 criar, remarcar, cancelar e recarregar o histórico. Capturas desktop1440/mobile390
-tiveram axe0, sem overflow horizontal ou erro JavaScript. CI e hospedagem pendentes.
+tiveram axe0, sem overflow horizontal ou erro JavaScript.
 
 Os quatro cenários Playwright passaram juntos no banco isolado de teste, incluindo
 recuperação de conflito entre abas e consulta de reservas canceladas. Evidências
 e limites em [verificação local](docs/evidence/verification.md). No Windows
 preparado, `./scripts/verify.ps1` executa todos os checks e migrations somente
 em `janela_test`.
+
+Os quatro fluxos também passaram na Vercel, em 22,3s, com PostgreSQL Neon real.
+A CI Linux passou com Node24.15/PostgreSQL17.10. Sessão e reserva persistiram
+após redeploy; cookies seguros, CSRF e arquivos privados foram verificados.
+Configuração e permissões em [hospedagem](docs/hosting.md).
 
 Contratos: [acesso](docs/contracts/access.md) e [reservas](docs/contracts/reservations.md).
 
