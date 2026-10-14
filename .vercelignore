@@ -1,0 +1,14 @@
+.local/
+.superpowers/
+.impeccable/
+.worktrees/
+.git/
+AGENTS.md
+docs/
+tests/
+test-results/
+playwright-report/
+.github/
+.env
+.env.*
+*.log
