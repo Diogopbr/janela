@@ -6,7 +6,8 @@ import { gateway } from './gateway.js';
 import { errorHandler } from './errors.js';
 import { accessRoutes, type AccessConfig } from '../access/routes.js';
 // Helmet's CommonJS entry is callable; resolve it explicitly across Node builders.
-const helmet = createRequire(import.meta.url)('helmet') as typeof import('helmet').default;
+const require = createRequire(import.meta.url);
+const helmet = require('helmet') as typeof import('helmet').default;
 export function createApp(dependencies: {
   pool: Pool;
   assets?: RequestHandler;
