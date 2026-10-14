@@ -1,18 +1,21 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "express",
+  "framework": "vite",
   "regions": ["gru1"],
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "functions": {
-    "src/index.ts": {
+    "api/index.ts": {
       "excludeFiles": "{frontend,tests,scripts,database,docs,.local,.superpowers,.impeccable,.vercel}/**"
     }
   },
   "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/health/ready", "destination": "/api/index" },
     { "source": "/", "destination": "/index.html" },
     { "source": "/entrar", "destination": "/index.html" },
     { "source": "/agenda", "destination": "/index.html" },
-    { "source": "/reservas/:id", "destination": "/index.html" }
+    { "source": "/reservas/:id", "destination": "/index.html" },
+    { "source": "/:path*", "destination": "/api/index" }
   ]
 }
